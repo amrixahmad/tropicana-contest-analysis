@@ -203,6 +203,56 @@ def load_input_dataframe(input_path: Path, sheet_name: str) -> pd.DataFrame:
     return pd.read_excel(input_path)
 
 
+def build_outreach_df(enriched_df: pd.DataFrame) -> pd.DataFrame:
+    preferred_columns = [
+        "best_outreach_name",
+        "best_outreach_name_status",
+        "participant_name",
+        "manychat_full_name",
+        "manychat_first_name",
+        "manychat_last_name",
+        "manychat_id",
+        "manychat_phone",
+        "manychat_email",
+        "manychat_last_interaction",
+        "manychat_last_seen",
+        "manychat_live_chat_url",
+        "replacement_status",
+        "selected_journal_status",
+        "selected_journal_text",
+        "all_time_oranges",
+    ]
+    available_columns = [column for column in preferred_columns if column in enriched_df.columns]
+    outreach_df = enriched_df[available_columns].copy()
+    rename_map = {
+        "best_outreach_name": "outreach_name",
+        "participant_name": "original_participant_name",
+    }
+    outreach_df = outreach_df.rename(columns={key: value for key, value in rename_map.items() if key in outreach_df.columns})
+    return outreach_df
+
+
+def build_detailed_records_df(enriched_df: pd.DataFrame) -> pd.DataFrame:
+    preferred_front_columns = [
+        "best_outreach_name",
+        "best_outreach_name_status",
+        "participant_name",
+        "manychat_full_name",
+        "manychat_first_name",
+        "manychat_last_name",
+        "manychat_id",
+        "replacement_status",
+        "manychat_phone",
+        "manychat_email",
+        "manychat_last_interaction",
+        "manychat_last_seen",
+        "manychat_live_chat_url",
+    ]
+    remaining_columns = [column for column in enriched_df.columns if column not in preferred_front_columns]
+    ordered_columns = [column for column in preferred_front_columns if column in enriched_df.columns] + remaining_columns
+    return enriched_df[ordered_columns].copy()
+
+
 def write_outputs(enriched_df: pd.DataFrame, lookup_df: pd.DataFrame, output_path: Path) -> Path:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     candidate_paths = [output_path, output_path.with_name(f"{output_path.stem}_{timestamp}{output_path.suffix}")]
@@ -210,9 +260,11 @@ def write_outputs(enriched_df: pd.DataFrame, lookup_df: pd.DataFrame, output_pat
     last_error: Exception | None = None
     for candidate_path in candidate_paths:
         try:
+            outreach_df = build_outreach_df(enriched_df)
+            detailed_records_df = build_detailed_records_df(enriched_df)
             with pd.ExcelWriter(candidate_path, engine="openpyxl") as writer:
-                prepare_excel_output(enriched_df, ["manychat_id"]).to_excel(writer, sheet_name="enriched_winners", index=False)
-                prepare_excel_output(lookup_df, ["manychat_id"]).to_excel(writer, sheet_name="manychat_lookup", index=False)
+                prepare_excel_output(outreach_df, ["manychat_id"]).to_excel(writer, sheet_name="outreach_list", index=False)
+                prepare_excel_output(detailed_records_df, ["manychat_id"]).to_excel(writer, sheet_name="detailed_records", index=False)
             return candidate_path
         except PermissionError as exc:
             last_error = exc
