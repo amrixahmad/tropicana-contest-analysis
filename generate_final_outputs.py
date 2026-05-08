@@ -36,9 +36,55 @@ INELIGIBLE_NAMES = [
     'Ida Rahayu Zainol',
     'Ida Rahayu',
     'Nurul Amri',
+    'Nurul Amri Ahmad Hasir',
     'Vinesh Rao',
     'Thomas Chin',
     'Johan Rcmc',
+    'Ned Murad',
+    'Ah Zhong',
+    'Kai Justin',
+    'Nora Rara',
+    'Byun Stella',
+    'Asyraaf Hazim',
+    'Cintaku Hati',
+    'Melvin Chris',
+    'Raimah Othman',
+    'Dinie Gulam',
+    'Ajjalil A Bakar',
+    'Faizah Nor',
+    'Fazie Badruddin',
+    'Suri Diamond Love',
+    'Guan Wen Tai',
+    'Yed Rahim',
+    'Fiqa Nasaruddin',
+    'Nadhirah Karem',
+    'Peter Ooi',
+    'Syn Wai',
+    'Leeya Arrianna',
+    'Maliq No',
+    'Yatie Afrina',
+    'Mohamadi Madie',
+    'Monkeys Nami',
+    'Ahn Asri',
+    'Syed Amir',
+    'Mariam Mzn',
+    'Mdm Nur',
+    'Priya Nair',
+    'Su Bee',
+    'Bella Asri',
+    'Azura AA',
+    'Arifull Islam',
+    'Asy Asya',
+    'Auni Aqila',
+    'Najwan Amir',
+]
+
+INELIGIBLE_IDS = [
+    '26068260039473989',
+    '685572017',
+    '2058410152',
+    '9349164381867289',
+    '1459333776',
 ]
 
 ID_COL = 'manychat_id'
@@ -148,10 +194,12 @@ contributors = contributors.copy()
 contributors[POINTS_COL] = pd.to_numeric(contributors[POINTS_COL], errors='coerce').fillna(0)
 contributors['normalized_name'] = contributors[NAME_COL].map(normalize_name)
 ineligible_normalized_names = {normalize_name(name) for name in INELIGIBLE_NAMES}
+explicit_ineligible_ids = pd.to_numeric(pd.Series(INELIGIBLE_IDS), errors='coerce').dropna().astype('int64').tolist()
 ineligible_ids = contributors.loc[
     contributors['normalized_name'].isin(ineligible_normalized_names),
     ID_COL,
 ].dropna().drop_duplicates().tolist()
+ineligible_ids = sorted(set(ineligible_ids) | set(explicit_ineligible_ids))
 shortlist_df = shortlist_df[~shortlist_df[ID_COL].isin(ineligible_ids)].copy()
 contributors = contributors[~contributors[ID_COL].isin(ineligible_ids)].copy()
 
