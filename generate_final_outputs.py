@@ -86,6 +86,21 @@ INELIGIBLE_IDS = [
     '9349164381867289',
     '1459333776',
     '1558303682',
+    '26128720686781725',
+    '26765561226434605',
+    '26039702679034991',
+    '35287738957506135',
+    '1826887376',
+]
+
+VERIFIED_FINAL_IDS = [
+    '26550612654593061',
+    '26345565091716286',
+]
+
+MANUAL_REMOVED_FINAL_IDS = [
+    '26304478562497060',
+    '27099866149620073',
 ]
 
 ID_COL = 'manychat_id'
@@ -393,14 +408,73 @@ replacement_candidates_selected['selected_journal_selection_rule'] = (
 )
 replacement_candidates_selected['replacement_status'] = 'replacement_for_no_journal_winner'
 
+verified_final_ids = pd.to_numeric(pd.Series(VERIFIED_FINAL_IDS), errors='coerce').dropna().astype('int64').tolist()
+manual_removed_final_ids = pd.to_numeric(pd.Series(MANUAL_REMOVED_FINAL_IDS), errors='coerce').dropna().astype('int64').tolist()
+verified_manual_winner_base = participant_points[
+    participant_points[ID_COL].isin(verified_final_ids)
+].copy()
+verified_manual_best_journals = (
+    shortlist_df[shortlist_df[ID_COL].isin(verified_manual_winner_base[ID_COL])]
+    .sort_values(['heuristic_content_score', 'journal_text_length'], ascending=[False, False], kind='mergesort')
+    .drop_duplicates(ID_COL)[consolation_best_journal_cols]
+    .rename(columns={
+        'journal_id': 'selected_journal_id',
+        'created_at_gmt8': 'selected_journal_created_at_gmt8',
+        JOURNAL_COL: 'selected_journal_text',
+        'journal_text_length': 'selected_journal_text_length',
+        'heuristic_content_score': 'selected_journal_heuristic_content_score',
+        'length_score': 'selected_journal_length_score',
+        'personal_score': 'selected_journal_personal_score',
+        'kindness_score': 'selected_journal_kindness_score',
+        'emotion_score': 'selected_journal_emotion_score',
+        'story_score': 'selected_journal_story_score',
+        'duplicate_penalty': 'selected_journal_duplicate_penalty',
+        'short_generic_promo_penalty': 'selected_journal_short_generic_promo_penalty',
+        'personal_term_count': 'selected_journal_personal_term_count',
+        'kindness_term_count': 'selected_journal_kindness_term_count',
+        'emotion_term_count': 'selected_journal_emotion_term_count',
+        'story_term_count': 'selected_journal_story_term_count',
+        'duplicate_text_count': 'selected_journal_duplicate_text_count',
+    })
+    .copy()
+)
+verified_manual_winners = verified_manual_winner_base.merge(
+    verified_manual_best_journals,
+    on=ID_COL,
+    how='left',
+    validate='one_to_one',
+)
+verified_manual_winners['selected_journal_status'] = np.where(
+    verified_manual_winners['selected_journal_id'].isna(),
+    'no_journal_available',
+    'selected_highest_heuristic_score',
+)
+verified_manual_winners['selected_journal_selection_rule'] = np.where(
+    verified_manual_winners['selected_journal_id'].isna(),
+    'participant has no journal entries in Raw Journals',
+    'highest heuristic_content_score; tie-breaker longest journal_text_length',
+)
+verified_manual_winners['replacement_candidate_reason'] = 'manually re-added as previously verified winner'
+verified_manual_winners['replacement_status'] = 'verified_winner_manual_inclusion'
+
 final_consolation_200_with_replacements = pd.concat(
     [
         final_consolation_200[final_consolation_200['selected_journal_id'].notna()].copy(),
         replacement_candidates_selected.copy(),
+        verified_manual_winners.copy(),
     ],
     ignore_index=True,
     sort=False,
-).sort_values(POINTS_COL, ascending=False, kind='mergesort').reset_index(drop=True)
+)
+final_consolation_200_with_replacements = final_consolation_200_with_replacements[
+    ~final_consolation_200_with_replacements[ID_COL].isin(manual_removed_final_ids)
+].copy()
+final_consolation_200_with_replacements = (
+    final_consolation_200_with_replacements
+    .sort_values(POINTS_COL, ascending=False, kind='mergesort')
+    .drop_duplicates(ID_COL)
+    .reset_index(drop=True)
+)
 
 final_consolation_200_with_replacements['replacement_status'] = (
     final_consolation_200_with_replacements['replacement_status'].fillna('original_consolation_winner')
