@@ -32,6 +32,77 @@ SELECTED_NAMES = [
     'Farhan',
 ]
 
+INELIGIBLE_NAMES = [
+    'Ida Rahayu Zainol',
+    'Ida Rahayu',
+    'Nurul Amri',
+    'Nurul Amri Ahmad Hasir',
+    'Vinesh Rao',
+    'Thomas Chin',
+    'Johan Rcmc',
+    'Ned Murad',
+    'Ah Zhong',
+    'Kai Justin',
+    'Nora Rara',
+    'Byun Stella',
+    'Asyraaf Hazim',
+    'Cintaku Hati',
+    'Melvin Chris',
+    'Raimah Othman',
+    'Dinie Gulam',
+    'Ajjalil A Bakar',
+    'Faizah Nor',
+    'Fazie Badruddin',
+    'Suri Diamond Love',
+    'Guan Wen Tai',
+    'Yed Rahim',
+    'Fiqa Nasaruddin',
+    'Nadhirah Karem',
+    'Peter Ooi',
+    'Syn Wai',
+    'Leeya Arrianna',
+    'Maliq No',
+    'Yatie Afrina',
+    'Mohamadi Madie',
+    'Monkeys Nami',
+    'Ahn Asri',
+    'Syed Amir',
+    'Mariam Mzn',
+    'Mdm Nur',
+    'Priya Nair',
+    'Su Bee',
+    'Bella Asri',
+    'Azura AA',
+    'Arifull Islam',
+    'Asy Asya',
+    'Auni Aqila',
+    'Najwan Amir',
+]
+
+INELIGIBLE_IDS = [
+    '26068260039473989',
+    '685572017',
+    '2058410152',
+    '9349164381867289',
+    '1459333776',
+    '1558303682',
+    '26128720686781725',
+    '26765561226434605',
+    '26039702679034991',
+    '35287738957506135',
+    '1826887376',
+]
+
+VERIFIED_FINAL_IDS = [
+    '26550612654593061',
+    '26345565091716286',
+]
+
+MANUAL_REMOVED_FINAL_IDS = [
+    '26304478562497060',
+    '27099866149620073',
+]
+
 ID_COL = 'manychat_id'
 NAME_COL = 'participant_name'
 JOURNAL_COL = 'journal_text'
@@ -138,6 +209,15 @@ shortlist_df['heuristic_content_score'] = (
 contributors = contributors.copy()
 contributors[POINTS_COL] = pd.to_numeric(contributors[POINTS_COL], errors='coerce').fillna(0)
 contributors['normalized_name'] = contributors[NAME_COL].map(normalize_name)
+ineligible_normalized_names = {normalize_name(name) for name in INELIGIBLE_NAMES}
+explicit_ineligible_ids = pd.to_numeric(pd.Series(INELIGIBLE_IDS), errors='coerce').dropna().astype('int64').tolist()
+ineligible_ids = contributors.loc[
+    contributors['normalized_name'].isin(ineligible_normalized_names),
+    ID_COL,
+].dropna().drop_duplicates().tolist()
+ineligible_ids = sorted(set(ineligible_ids) | set(explicit_ineligible_ids))
+shortlist_df = shortlist_df[~shortlist_df[ID_COL].isin(ineligible_ids)].copy()
+contributors = contributors[~contributors[ID_COL].isin(ineligible_ids)].copy()
 
 selection_rows = []
 for idx, name in enumerate(SELECTED_NAMES, start=1):
@@ -191,7 +271,7 @@ best_journal_cols = [
 
 best_journals = (
     shortlist_df[shortlist_df[ID_COL].isin(matched_ids)]
-    .sort_values(['heuristic_content_score', 'journal_text_length'], ascending=[False, False])
+    .sort_values(['heuristic_content_score', 'journal_text_length'], ascending=[False, False], kind='mergesort')
     .drop_duplicates(ID_COL)[best_journal_cols]
     .copy()
 )
@@ -202,10 +282,10 @@ selected_with_best_journals = selection_resolution.merge(
     how='left',
 )
 
-participant_points = contributors.drop(columns=['normalized_name']).sort_values(POINTS_COL, ascending=False).copy()
+participant_points = contributors.drop(columns=['normalized_name']).sort_values(POINTS_COL, ascending=False, kind='mergesort').copy()
 final_consolation_200 = (
     participant_points[~participant_points[ID_COL].isin(matched_ids)]
-    .sort_values(POINTS_COL, ascending=False)
+    .sort_values(POINTS_COL, ascending=False, kind='mergesort')
     .head(200)
     .copy()
 )
@@ -233,7 +313,7 @@ consolation_best_journal_cols = [
 
 consolation_best_journals = (
     shortlist_df[shortlist_df[ID_COL].isin(final_consolation_200[ID_COL])]
-    .sort_values(['heuristic_content_score', 'journal_text_length'], ascending=[False, False])
+    .sort_values(['heuristic_content_score', 'journal_text_length'], ascending=[False, False], kind='mergesort')
     .drop_duplicates(ID_COL)[consolation_best_journal_cols]
     .rename(columns={
         'journal_id': 'selected_journal_id',
@@ -282,11 +362,11 @@ replacement_candidate_pool = participant_points[
     ~participant_points[ID_COL].isin(matched_ids)
     & ~participant_points[ID_COL].isin(final_consolation_200[ID_COL])
     & participant_points[ID_COL].isin(shortlist_df[ID_COL])
-].sort_values(POINTS_COL, ascending=False).copy()
+].sort_values(POINTS_COL, ascending=False, kind='mergesort').copy()
 
 replacement_candidate_best_journals = (
     shortlist_df[shortlist_df[ID_COL].isin(replacement_candidate_pool[ID_COL])]
-    .sort_values(['heuristic_content_score', 'journal_text_length'], ascending=[False, False])
+    .sort_values(['heuristic_content_score', 'journal_text_length'], ascending=[False, False], kind='mergesort')
     .drop_duplicates(ID_COL)[consolation_best_journal_cols]
     .rename(columns={
         'journal_id': 'selected_journal_id',
@@ -328,14 +408,73 @@ replacement_candidates_selected['selected_journal_selection_rule'] = (
 )
 replacement_candidates_selected['replacement_status'] = 'replacement_for_no_journal_winner'
 
+verified_final_ids = pd.to_numeric(pd.Series(VERIFIED_FINAL_IDS), errors='coerce').dropna().astype('int64').tolist()
+manual_removed_final_ids = pd.to_numeric(pd.Series(MANUAL_REMOVED_FINAL_IDS), errors='coerce').dropna().astype('int64').tolist()
+verified_manual_winner_base = participant_points[
+    participant_points[ID_COL].isin(verified_final_ids)
+].copy()
+verified_manual_best_journals = (
+    shortlist_df[shortlist_df[ID_COL].isin(verified_manual_winner_base[ID_COL])]
+    .sort_values(['heuristic_content_score', 'journal_text_length'], ascending=[False, False], kind='mergesort')
+    .drop_duplicates(ID_COL)[consolation_best_journal_cols]
+    .rename(columns={
+        'journal_id': 'selected_journal_id',
+        'created_at_gmt8': 'selected_journal_created_at_gmt8',
+        JOURNAL_COL: 'selected_journal_text',
+        'journal_text_length': 'selected_journal_text_length',
+        'heuristic_content_score': 'selected_journal_heuristic_content_score',
+        'length_score': 'selected_journal_length_score',
+        'personal_score': 'selected_journal_personal_score',
+        'kindness_score': 'selected_journal_kindness_score',
+        'emotion_score': 'selected_journal_emotion_score',
+        'story_score': 'selected_journal_story_score',
+        'duplicate_penalty': 'selected_journal_duplicate_penalty',
+        'short_generic_promo_penalty': 'selected_journal_short_generic_promo_penalty',
+        'personal_term_count': 'selected_journal_personal_term_count',
+        'kindness_term_count': 'selected_journal_kindness_term_count',
+        'emotion_term_count': 'selected_journal_emotion_term_count',
+        'story_term_count': 'selected_journal_story_term_count',
+        'duplicate_text_count': 'selected_journal_duplicate_text_count',
+    })
+    .copy()
+)
+verified_manual_winners = verified_manual_winner_base.merge(
+    verified_manual_best_journals,
+    on=ID_COL,
+    how='left',
+    validate='one_to_one',
+)
+verified_manual_winners['selected_journal_status'] = np.where(
+    verified_manual_winners['selected_journal_id'].isna(),
+    'no_journal_available',
+    'selected_highest_heuristic_score',
+)
+verified_manual_winners['selected_journal_selection_rule'] = np.where(
+    verified_manual_winners['selected_journal_id'].isna(),
+    'participant has no journal entries in Raw Journals',
+    'highest heuristic_content_score; tie-breaker longest journal_text_length',
+)
+verified_manual_winners['replacement_candidate_reason'] = 'manually re-added as previously verified winner'
+verified_manual_winners['replacement_status'] = 'verified_winner_manual_inclusion'
+
 final_consolation_200_with_replacements = pd.concat(
     [
         final_consolation_200[final_consolation_200['selected_journal_id'].notna()].copy(),
         replacement_candidates_selected.copy(),
+        verified_manual_winners.copy(),
     ],
     ignore_index=True,
     sort=False,
-).sort_values(POINTS_COL, ascending=False).reset_index(drop=True)
+)
+final_consolation_200_with_replacements = final_consolation_200_with_replacements[
+    ~final_consolation_200_with_replacements[ID_COL].isin(manual_removed_final_ids)
+].copy()
+final_consolation_200_with_replacements = (
+    final_consolation_200_with_replacements
+    .sort_values(POINTS_COL, ascending=False, kind='mergesort')
+    .drop_duplicates(ID_COL)
+    .reset_index(drop=True)
+)
 
 final_consolation_200_with_replacements['replacement_status'] = (
     final_consolation_200_with_replacements['replacement_status'].fillna('original_consolation_winner')
@@ -373,6 +512,8 @@ replacement_candidates_output_path = write_excel_with_fallback(replacement_candi
 consolation_with_replacements_output_path = write_excel_with_fallback(final_consolation_200_with_replacements, consolation_with_replacements_output_path)
 
 print('Selected names provided:', len(SELECTED_NAMES))
+print('Excluded ineligible names provided:', len(INELIGIBLE_NAMES))
+print('Excluded ineligible participant IDs:', len(ineligible_ids))
 print('Unique matched participant IDs excluded:', len(matched_ids))
 print('Unmatched selected names:', int((selection_resolution['match_status'] == 'unmatched').sum()))
 print('Multiple exact-name match rows:', int((selection_resolution['match_status'] == 'multiple_exact_name_matches').sum()))
