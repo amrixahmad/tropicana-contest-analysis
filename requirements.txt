@@ -5,3 +5,4 @@ jupyter
 scikit-learn
 matplotlib
 seaborn
+requests
