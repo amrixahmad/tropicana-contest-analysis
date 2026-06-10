@@ -16,10 +16,7 @@ LATEST_MESSAGE_FROM_ID_COL = 'latest_message_from_id'
 PAGE_NAME = 'Tropicana Malaysia'
 PAGE_ID = '594456394024035'
 SECOND_OUTREACH_MATCH_FRAGMENTS = [
-    'Peringatan untuk hantar maklumat anda sebelum 10 Jun 2026, 8pm bagi meneruskan proses penebusan hadiah.',
-    'Ini adalah peringatan terakhir untuk menghantar maklumat yang diperlukan sebelum',
-    'Sekiranya maklumat tidak diterima sebelum tarikh dan masa tersebut, hadiah anda tidak dapat diproses.',
-    'bagi tujuan penebusan hadiah anda.',
+    'Ini adalah peringatan terakhir untuk menghantar maklumat yang diperlukan sebelum 9 Jun 2026, jam 8 malam bagi tujuan penebusan hadiah anda.',
 ]
 
 
